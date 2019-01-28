@@ -14,9 +14,9 @@ eps = 1
 sigma = 1
 r_c = 3
 nbasis = 4
-threshold = 0.5
+threshold = 0.1
 alpha = 10**(-3)
-force_tol = 10**(-1)
+force_tol = 10**(-2)
 
 #If r_c is set so that we consider only nearest neighbors, we can 
 #solve for the equilibrium radius by differentiating the potential and 
@@ -146,7 +146,7 @@ E_vac = E_tot_vac - ((natoms - 1)/natoms)*E_tot
 
 
 #Ben Fearon's plotting script
-# #PLOT CELL
+#PLOT CELL
 # fig = plt.figure()
 # ax = plt.axes(projection='3d')
 # ax.scatter3D(atoms[:,0], atoms[:,1], atoms[:,2]);
@@ -158,7 +158,7 @@ E_vac = E_tot_vac - ((natoms - 1)/natoms)*E_tot
 #4.6
 def converged_E_vac(threshold):
 	E_vac_old = 100000000000000000
-	for l in range(3,10):
+	for l in range(2,10):
 		atoms,natoms = setup_cell(l,l,l)
 		to_remove = random.randint(0,natoms - 1)
 		vac_atoms = np.delete(atoms, to_remove, axis=0)
@@ -168,10 +168,11 @@ def converged_E_vac(threshold):
 		E_vac_old = E_vac
 	return E_vac, l
 
-E_vac_converged, LMN_opt = converged_E_vac(threshold)
-print(E_vac_converged)
-print(LMN_opt)
-#We see a converged vacancy energy of 8.234344445653733 with L = M = N = 4 with a threshold of 0.5. 
+#E_vac_converged, LMN_opt = converged_E_vac(threshold)
+# print(E_vac_converged)
+# print(LMN_opt)
+
+#We see a converged vacancy energy of 8.234344445658166 with L = M = N = 3 with a threshold of 0.1. 
 
 #4.7 The forces on the nearest neighbor atoms are essentially unchanged in magnitude when we 
 # move to the r_c = 3 case, however, we now see appreciable forces exerted on non-nearest neighbor
@@ -184,59 +185,66 @@ print(LMN_opt)
 #5.1 
 def minimize_E(vac_atoms, natoms, L,M,N, alpha):
 	forces_vac_old =  np.zeros((natoms - 1,3))
-	for i in tqdm(range(100000)):
+	for i in (range(100000)):
 		E_tot, forces_vac = E_tot_and_force(vac_atoms, natoms - 1, L, M, N)
 		if np.linalg.norm(forces_vac - forces_vac_old) < force_tol: 
-			print("Converged in {} steps.".format(i))
+			#print("Converged in {} steps.".format(i))
 			break
 		vac_atoms += alpha*forces_vac
 		forces_vac_old = forces_vac
 		if i == 99999 : print("Didn't converge on optimal atom positions")
 		#print(E_tot)
-	return vac_atoms
+	return vac_atoms, E_tot
 
 #5.2 
 def converged_rel_E_vac(threshold):
 	E_vac_old = 100000000000000000
-	for l in range(3,10):
+	for l in tqdm(range(2,10)):
 		atoms,natoms = setup_cell(l,l,l)
 		to_remove = random.randint(0,natoms - 1)
 		vac_atoms = np.delete(atoms, to_remove, axis=0)
-		vac_atoms_opt = minimize_E(vac_atoms, natoms, l, l, l, alpha)
+		vac_atoms_opt = minimize_E(vac_atoms, natoms, l, l, l, alpha)[0]
 		E_vac = E_tot_and_force(vac_atoms_opt, natoms - 1, l, l, l)[0] - ((natoms - 1)/natoms)*E_tot_and_force(atoms, natoms, l, l, l)[0]
 		if np.abs(E_vac - E_vac_old) < threshold: 
 			break
 		E_vac_old = E_vac
-		print(l)
+		#print(l)
 		if l ==10 : print("Did not converge")
 
 	return E_vac, l
 
-E_vac_rel_converged, LMN_rel_opt = converged_rel_E_vac(threshold)
-print(E_vac_rel_converged)
-print(LMN_rel_opt)
+#E_vac_rel_converged, LMN_rel_opt = converged_rel_E_vac(threshold)
+# print(E_vac_rel_converged)
+# print(LMN_rel_opt)
 
-#For convergence of the vacancy, we find an optimal value of L = M = N = 4 when we now allow relaxation (threshold = 0.5).
-#The converged value here is E_vac = 8.210800820089844. The energy clearly decreased from the unrelaxed case, but the cell size is unchanged. 
+#For convergence of the vacancy, we again find an optimal value of L = M = N = 3 when we now allow relaxation (threshold = 0.1).
+#The converged value here is E_vac = 8.211838298141856. The energy clearly decreased from the unrelaxed case as desired, but the cell size is unchanged. 
 
 #5.3
-#Changing the lattice constant to 0.95a also requires a computational cell size 
-# of L = N = M = 4 in the case of no relaxation (threshold = 0.5), but the energy 
-#decreased to 8.08542532974343. 
+#Changing the lattice constant to 0.95a still requires a computational cell size 
+# of L = N = M = 3 for convergence in the case of no relaxation (threshold = 0.1), and the energy 
+#decreased to 8.08542532979493. 
 
 #5.4
-#In the case of relaxation, we find the new computational cell size for 0.95a to be
-#L = N = M = (threshold = 0.5). The energy decreased even further to . 
+#In the case of relaxation, we again find the computational cell size for 0.95a to be
+#L = N = M = 3 (threshold = 0.1), and the energy decreased even further to 7.713722187858366. 
 
-#How do these results differ from the unstrained computational cell case?
 
+#We find the same computational cell size required for convergence in the strained vs unstrained case,
+#but the energy is now lower in the strained case. This makes sense since it is easier to remove an atom from a crystal under pressure. 
 
 #5.5
-#Compute the ratio of the converged vacancy energy to the cohesive energy and com- pare to the values of around 0.3 that are observed for metals.
-# E_coh = 6.0, and from the previous calculation with relaxation we have the converged vacancy energy as . Thus, the ratio is .
+# test = minimize_E(vac_atoms, natoms, 3, 3, 3, alpha)[1]
+# print(test/(natoms - 1))
+#E_coh = -8.013356666729525
+
+#Compute the ratio of the converged vacancy energy to the cohesive energy and compare to the values of around 0.3 that are observed for metals.
+# E_coh = -8.013356666729525 from above, and from the previous calculation with relaxation we have the converged vacancy energy as 7.713722187858366. 
+#Thus, the ratio is roughly 0.96.
 
 #5.6
-#Do you think that relaxation of the atoms can account for the discrepancy in this ratio between pair potentials and metals discussed in class?
+#As seen above, the allowed relaxation does bring the ratio closer to 0.3, but only slightly (it is still very close to 1). Therefore,
+#it seems we need more than just relaxation to accound for this discrepancy. 
 
 #Part 6
 #6.1
