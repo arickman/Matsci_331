@@ -5,7 +5,7 @@ from math import ceil
 import random
 from tqdm import tqdm
 
-L = 1
+L = 3
 M = L
 N = L
 eps = 1
@@ -15,7 +15,7 @@ nbasis = 4
 a = sigma * 2**(2/3)
 latvec = np.array([[a*L, 0, 0],[0, a*M, 0],[0,0, a*N]])
 m = 1
-kb_T = 0.2
+kb_T = 4
 dt = 0.01
 nsteps = 2*10**(3)
 
@@ -42,7 +42,7 @@ def setup_cell():
 
 
 def E_tot_and_force(atoms, natoms, force_flag=True):
-	#if (2*a >= L): print("Requirement not met.")
+	#if (2*rcut >= L): print("Requirement not met.")
 	dummy = np.shape(atoms)[1]
 
 	rcut_sqr = rcut*rcut
@@ -120,8 +120,7 @@ def integrate(atoms_old, vels, dt): #atoms_old from init_vel(atoms)
 	kb_t_vec = np.zeros(nsteps)
 	deviation = np.zeros(nsteps)
 	kb_t_vec[0] = KE_tot(vels_old)[1]
-	#r_disp = np.zeros((natoms,3,nsteps))
-	#r_disp[0] = 0
+	r_disp = np.zeros((natoms,3,20))
 	for i in range(1,nsteps):
 		#propagate the atoms with the old atoms
 		prop_atoms = r_prop(atoms_old, vels_old, forces_old, dt)
@@ -133,13 +132,14 @@ def integrate(atoms_old, vels, dt): #atoms_old from init_vel(atoms)
 		energy += e_step
 		deviation[i] = e_step - energy_0
 		kb_t_vec[i] = KE_tot(prop_vels)[1]
-		#r_disp[:,:,i] = np.sum(abs(prop_atoms - atoms_old)**2, )
+		if (i < 21):
+			r_disp[:,:,i - 1] = prop_atoms - atoms_old
 		#set the propagated atoms to be the old atoms to find the new propagation with
 		atoms_old = prop_atoms
 		vels_old = prop_vels
 		forces_old = prop_forces
-	#r_disp_return = 1/natoms * np.sum(r_disp)
-	return energy, kb_t_vec, 1/(3*natoms)* deviation, vels_matrix#, r_disp_return
+	r_disp_return = 1/natoms * np.sum(np.sum(np.power(r_disp, 2), axis = 1), axis = 0)
+	return energy, kb_t_vec, 1/(3*natoms)* deviation, vels_matrix, r_disp_return
 
 #print(integrate(atoms_old, vels, dt)[0])
 #We calculate a total energy of -55985.97874047868 for dt = 0.01
@@ -262,11 +262,11 @@ def auto_corr(vels_matrix):
 
 auto = auto_corr(vels_matrix)
 freq = np.fft.fftfreq(1500, d=dt)
-fig,ax = plt.subplots()
-ax.plot(freq, auto)
-ax.set_xlim(0, 10)
-ax.set_xlabel(r"$\omega$")
-ax.set_ylabel(r"P($\omega$)")
+# fig,ax = plt.subplots()
+# ax.plot(freq, auto)
+# ax.set_xlim(0, 10)
+# ax.set_xlabel(r"$\omega$")
+# ax.set_ylabel(r"P($\omega$)")
 # ax.set_title("Autocorrelation Function, 2x2x2 (dt = 0.01)")
 # fig.savefig("hw3_4_1.pdf")
 
@@ -285,7 +285,6 @@ ax.set_ylabel(r"P($\omega$)")
 #Now for the 1x1x1 case:
 # ax.set_title("Autocorrelation Function, 1x1x1 (dt = 0.01)")
 # fig.savefig("hw3_4_3.pdf")
-
 
 #From the plots generated for all 3 cases, it is clear that generally,
 #the larger the computational cell size, the more resonant peaks
@@ -312,13 +311,53 @@ ax.set_ylabel(r"P($\omega$)")
 #Problem 5
 # Unless kb_T >> h_bar*omega_max then we have quantum effects. 
 #Now we compare kb_T = 0.2 to h_bar*omega_max to see if a classical approach is justified. 
-#omega_max is given by
+#omega_max is given by the largest omega corresponding to an appreciable (not noise)
+#peak on the autocorrelation curve. This is estimated by eye, and for 
+#a computational cell size of 2x2x2, we see that roughly omega_max = 4, 
+#estimating on the high side which is okay since we are only asking
+#whether kb_T >>  h_bar*omega_max. So to perform this calculation, 
+#we lastly need the units of omega here:
+#We are operating in units of time m^(1/2)*sigma * epsilon^(-1/2), therefore
+#omega (inverse time) is in units of m^(-1/2)*sigma^-1 * epsilon^(1/2).
+#See attached for the rest of this calculation. 
 
 #Problem 6 
 
 #Part 1
 #Added code to calculate a displacement vector for different time steps. 
-#msd = integrate(atoms_old, vels, dt)[4]
+t = np.arange(0,20)
+msd = integrate(atoms_old, vels, dt)[4]
+# fig,ax = plt.subplots()
+# ax.plot(t, msd)
+#ax.set_xlim(0, 10)
+# ax.set_xlabel("Time Step (dt = 0.01)")
+# ax.set_ylabel("Mean-Squared Displacement")
+# ax.set_title("Mean-Squared Displacement, 3x3x3, kb_T = 0.2")
+# fig.savefig("hw3_6_1.pdf")
+# ax.set_title("Mean-Squared Displacement, 3x3x3, kb_T = 4")
+# fig.savefig("hw3_6_2.pdf")
+
+#The plots are generally similar, in that that start at some "high"
+#value for the msd then traverse toward a minimum after some time, 
+#then climbing back up again. The 0.2 case however takes more time steps
+#to achieve the minimum msd and is also much smoother. The higher 
+#temperature case takes roughly half the time steps to reach its 
+#minimum but it is very jagged with kinks between straight lines. 
+
+#Part 2
+#The diffusion constant can be approximated by the long time 
+#(t -> infinity) derivative of the mean-squared displacement, 
+#divided by 2*d where d is the dimension of the system (3 here). 
+#To estimate this, we take the derivative of the final portion of the 
+#high temperature plot, ~(20-170.0006 - 0.00065) distance/time. 
+#This is approximately -6,000,000 mm^2/([6.63 * 10^(-26)kg]^(1/2) * [sigma] * [epsilon]^(-1/2))
+#Using wolfram alpha to calculate this with the given parameters for 
+#argon (and remembering to divide by 6), we find a diffusion constant
+#of approximately 4.668 * 10^16 mm^2/s. It makes sense that the diffusion
+#coefficient for water is much much much less than for argon at kb_T = 4,
+#since this corresponds to a  temperature of 483.83 K, a gaseous state,
+#which will diffuse very easily. 
+
 
 
 
