@@ -5,7 +5,7 @@ from math import ceil
 import random
 from tqdm import tqdm
 
-L = 2
+L = 1
 M = L
 N = L
 eps = 1
@@ -261,22 +261,46 @@ def auto_corr(vels_matrix):
 	return 1/(3*natoms) * np.sum((np.sum(norm, axis = 1)), axis = 0)
 
 auto = auto_corr(vels_matrix)
-freq = np.fft.fftfreq(nsteps, d=dt)
+freq = np.fft.fftfreq(1500, d=dt)
 fig,ax = plt.subplots()
 ax.plot(freq, auto)
 ax.set_xlim(0, 10)
 ax.set_xlabel(r"$\omega$")
 ax.set_ylabel(r"P($\omega$)")
-ax.set_title("Autocorrelation Function, 2x2x2 (dt = 0.01)")
-fig.savefig("hw3_4_1.pdf")
+# ax.set_title("Autocorrelation Function, 2x2x2 (dt = 0.01)")
+# fig.savefig("hw3_4_1.pdf")
+
+#In the plot attached, we do see consistency with the sketch in that
+#we see spikes at the resonant frequencies for atomic vibration. 
 
 #Part 3
-#Here we simply repeat the above for 1x1x1 and 3x3x3 case
+#Here we simply repeat the above for 1x1x1 and 3x3x3 case. 
+#Starting with the 3x3x3 case, we see roughly the same number of 
+#time steps (500) needed to reach equilibrium from the plot of
+#kb_T for the 3x3x3 case performed above. Thus we can repeat
+#the above (with L manually changed at the top to 3). 
 # ax.set_title("Autocorrelation Function, 3x3x3 (dt = 0.01)")
-# fig.savefig("hw3_4_3.pdf")
+# fig.savefig("hw3_4_2.pdf")
+
+#Now for the 1x1x1 case:
+ax.set_title("Autocorrelation Function, 1x1x1 (dt = 0.01)")
+fig.savefig("hw3_4_3.pdf")
+
+
+#From the plots generated for all 3 cases, it is clear that 
+#the larger the computational cell size, the more resonant peaks
+#we see. This makes sense as a higher cell size implies more allowed
+#k-modes (limited by the periodic boundary conditions of the lattice) 
+#and thus more resonant frequency values stand out in the plot. 
 
 #Part 4
-
+#The amplitude of the peaks should be proportional to the density of states,
+#since many available states at the same frequency would imply large constructive
+#interference. There will not necessarily be resonance peaks out of equilibrium
+#because the system may be too noisy for any dominant behavior to 
+#show through. In other words the system is changing rapidly and thus the 
+#periodicity and thus the constructive interference building the peaks
+#is not yet achieved before we hit equilibrium. 
 
 #Problem 5
 # Unless kb_T >> h_bar*omega_max then we have quantum effects. 
