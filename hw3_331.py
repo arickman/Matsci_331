@@ -17,7 +17,7 @@ latvec = np.array([[a*L, 0, 0],[0, a*M, 0],[0,0, a*N]])
 m = 1
 kb_T = 0.2
 dt = 0.01
-nsteps = 10**(3)
+nsteps = 2*10**(3)
 
 
 def setup_cell():
@@ -120,6 +120,8 @@ def integrate(atoms_old, vels, dt): #atoms_old from init_vel(atoms)
 	kb_t_vec = np.zeros(nsteps)
 	deviation = np.zeros(nsteps)
 	kb_t_vec[0] = KE_tot(vels_old)[1]
+	#r_disp = np.zeros((natoms,3,nsteps))
+	#r_disp[0] = 0
 	for i in range(1,nsteps):
 		#propagate the atoms with the old atoms
 		prop_atoms = r_prop(atoms_old, vels_old, forces_old, dt)
@@ -131,34 +133,36 @@ def integrate(atoms_old, vels, dt): #atoms_old from init_vel(atoms)
 		energy += e_step
 		deviation[i] = e_step - energy_0
 		kb_t_vec[i] = KE_tot(prop_vels)[1]
+		#r_disp[:,:,i] = np.sum(abs(prop_atoms - atoms_old)**2, )
 		#set the propagated atoms to be the old atoms to find the new propagation with
 		atoms_old = prop_atoms
 		vels_old = prop_vels
 		forces_old = prop_forces
-	return energy, kb_t_vec, 1/(3*natoms)* deviation, vels_matrix
+	#r_disp_return = 1/natoms * np.sum(r_disp)
+	return energy, kb_t_vec, 1/(3*natoms)* deviation, vels_matrix#, r_disp_return
 
 #print(integrate(atoms_old, vels, dt)[0])
 #We calculate a total energy of -55985.97874047868 for dt = 0.01
 
 #Part 4 and 5
 #Standalone plot for Kb_T(t):
-kb_t_vec = integrate(atoms_old, vels, dt)[1]
-t = np.arange(0,nsteps)
-fig,ax = plt.subplots()
-ax.set_ylim(-1,1)
-ax.plot(t, kb_t_vec[t])
-ax.set_xlabel("Time Steps")
-ax.set_ylabel("kb_T")
-ax.set_title("Molecular Dynamics, 3x3x3 (dt = 0.01)")
-fig.savefig("hw3_3.pdf")
+#kb_t_vec = integrate(atoms_old, vels, dt)[1]
+# t = np.arange(0,nsteps)
+# fig,ax = plt.subplots()
+# ax.set_ylim(0,0.25)
+# ax.plot(t, kb_t_vec[t])
+# ax.set_xlabel("Time Steps")
+# ax.set_ylabel("kb_T")
+# ax.set_title("Molecular Dynamics, 2x2x2 (dt = 0.01)")
+# fig.savefig("hw3_3_1.pdf")
 
 #One plot showing all cases of dt = 0.01, 0.02, 0.04 and 0.06. 
 #Here we found that the time step of 0.06 diverges for this calculation. 
 # t = np.arange(0, nsteps)
-# energy_1, kb_t_vec_1, dev_1, vels_mat1  = integrate(atoms_old, vels, 0.01)
-# energy_2, kb_t_vec_2, dev_2, vels_mat2  = integrate(atoms_old, vels, 0.02)
-# energy_3, kb_t_vec_3, dev_3, vels_mat3  = integrate(atoms_old, vels, 0.04)
-# #energy_4, kb_t_vec_4, dev_4, vels_mat4  = integrate(atoms_old, vels, 0.06) #Diverges
+# energy_1, kb_t_vec_1, dev_1, vels_mat1, disp1  = integrate(atoms_old, vels, 0.01)
+# energy_2, kb_t_vec_2, dev_2, vels_mat2, disp2  = integrate(atoms_old, vels, 0.02)
+# energy_3, kb_t_vec_3, dev_3, vels_mat3,disp3  = integrate(atoms_old, vels, 0.04)
+# #energy_4, kb_t_vec_4, dev_4, vels_mat4,disp4  = integrate(atoms_old, vels, 0.06) #Diverges
 # fig, ax = plt.subplots()
 # ax.set_ylim(-0.01,0.25)
 # ax.plot(t, kb_t_vec_1[t], label = 'kb_T for dt = 0.01')
@@ -173,39 +177,84 @@ fig.savefig("hw3_3.pdf")
 # ax.set_xlabel("Time Steps")
 # ax.set_ylabel("kb_T and Energy Deviations")
 # ax.set_title("Molecular Dynamics Calculations")
-# fig.savefig("hw3_5.pdf")
+# fig.savefig("hw3_1_5_1.pdf")
+
+#Plot of the deviations only:
+# t = np.arange(0, nsteps)
+# dev_1 = integrate(atoms_old, vels, 0.01)[2]
+# dev_2 = integrate(atoms_old, vels, 0.02)[2]
+# dev_3 = integrate(atoms_old, vels, 0.04)[2]
+# fig, ax = plt.subplots()
+# ax.set_ylim(-0.01,0.01)
+# ax.plot(t, dev_1[t], label = 'dev for dt = 0.01')
+# ax.plot(t, dev_2[t], label = 'dev for dt = 0.02')
+# ax.plot(t, dev_3[t], label = 'dev for dt = 0.04')
+# ax.legend()
+# ax.set_xlabel("Time Steps")
+# ax.set_ylabel("Energy Deviations")
+# ax.set_title("Molecular Dynamics Calculations")
+# fig.savefig("hw3_1_5_2.pdf")
 
 #Problem 3
-#The only unacceptable time step is 0.06, so we can use the default step of 0.01. 
+#The only unacceptable time step is 0.06, 
+#and we saw an increase and then divergence at this value, 
+#so we can use the default step of 0.01 to be safe. 
 
 #Part 1
 #We have already plotted the time evolution of kb_T in a previous part. 
 #Answering this roughly/subjectively, we can look at the plot from before and see that 
 #around 500 time steps (5 seconds here) are required for the temperature to reach a 
 #state where the average value and average variance do not significantly change with time. 
-#From analyzing the fastest features of the temperature, we can approximate the 
-#time scale for one atomic vibration as being 25 time steps (0.25 seconds). Therefore, 
+#This is performed simply by eye here. 
+#From analyzing the fastest features of the temperature, we can again approximate the 
+#time scale for one atomic vibration by eye as being 25 time steps (0.25 seconds). Therefore, 
 # in 5 seconds there are about 20 atomic vibrations. 
 
 #Part 2
 # temp_eq = 0
 # for i in range(499,nsteps):
-# 	temp_eq += kb_t_vec_1[i]
-# temp_eq *= (1/500)
-#print(temp_eq)
-#kb_T_eq = 0.10367
-#This is lower than the specified initial kb_t of 0.2
+# 	temp_eq += kb_t_vec[i]
+# temp_eq *= (1/1500)
+# print(temp_eq)
+#kb_T_eq = 0.10346
+#This is lower than the specified initial kb_t of 0.2. This makes sense since
+# in our setup we constructed a lattice assuming 0 temperature and thus 
+#zero specific heat (Kittel page 123). This means that the system is very 
+#sensitive to thermal perturbations and thus the lattice loses thermal energy
+#to the environment, dropping in magnitude by almost a factor of 2. 
 
 #Part 3
 #For a time step of 0.01, we now plot for L = M = N = 3 and compare to 
 # the plot before for L = M = N = 2. 
+# t = np.arange(0,nsteps)
+# fig,ax = plt.subplots()
+# ax.set_ylim(0,0.25)
+# ax.plot(t, kb_t_vec[t])
+# ax.set_xlabel("Time Steps")
+# ax.set_ylabel("kb_T")
+# ax.set_title("Molecular Dynamics, 3x3x3 (dt = 0.01)")
+# fig.savefig("hw3_3_2.pdf")
 
+#We see the magnitude of fluctuations decrease as we increase
+#computational cell size. This makes sense according to the 
+#central limit theorem--as the number of particles increases,
+#the variance of this temperature random variable decreases accordingly. 
 
 
 #Problem 4
+#Now we want to only include post-equilibration terms. 
+#In our vels_matrix below, we need to only include the terms beyond the
+#500th time step. See below.
+
 
 #Part 1
-vels_matrix = integrate(atoms_old, vels, dt)[3]
+#See attached for work.
+
+
+#Part 2
+#Added code to calculate a velocity matrix at diff time steps
+vels_matrix_unsliced = integrate(atoms_old, vels, dt)[3]
+vels_matrix = vels_matrix_unsliced[:,:,500:]
 def auto_corr(vels_matrix):
 	fourier = np.fft.fft(vels_matrix, axis = 2)
 	norm = abs(fourier)**2
@@ -221,9 +270,24 @@ ax.set_ylabel(r"P($\omega$)")
 ax.set_title("Autocorrelation Function, 2x2x2 (dt = 0.01)")
 fig.savefig("hw3_4_1.pdf")
 
+#Part 3
+#Here we simply repeat the above for 1x1x1 and 3x3x3 case
+# ax.set_title("Autocorrelation Function, 3x3x3 (dt = 0.01)")
+# fig.savefig("hw3_4_3.pdf")
+
+#Part 4
 
 
+#Problem 5
+# Unless kb_T >> h_bar*omega_max then we have quantum effects. 
+#Now we compare kb_T = 0.2 to h_bar*omega_max to see if a classical approach is justified. 
+#omega_max is given by
 
+#Problem 6 
+
+#Part 1
+#Added code to calculate a displacement vector for different time steps. 
+#msd = integrate(atoms_old, vels, dt)[4]
 
 
 
