@@ -5,7 +5,7 @@ from math import ceil
 import random
 from tqdm import tqdm
 
-L = 3
+L = 2
 M = L
 N = L
 eps = 1
@@ -260,8 +260,8 @@ def auto_corr(vels_matrix):
 	norm = abs(fourier)**2
 	return 1/(3*natoms) * np.sum((np.sum(norm, axis = 1)), axis = 0)
 
-auto = auto_corr(vels_matrix)
-freq = np.fft.fftfreq(1500, d=dt)
+# auto = auto_corr(vels_matrix)
+# freq = np.fft.fftfreq(1500, d=dt)
 # fig,ax = plt.subplots()
 # ax.plot(freq, auto)
 # ax.set_xlim(0, 10)
@@ -325,8 +325,8 @@ freq = np.fft.fftfreq(1500, d=dt)
 
 #Part 1
 #Added code to calculate a displacement vector for different time steps. 
-t = np.arange(0,20)
-msd = integrate(atoms_old, vels, dt)[4]
+# t = np.arange(0,20)
+# msd = integrate(atoms_old, vels, dt)[4]
 # fig,ax = plt.subplots()
 # ax.plot(t, msd)
 #ax.set_xlim(0, 10)
@@ -354,14 +354,25 @@ msd = integrate(atoms_old, vels, dt)[4]
 #Using wolfram alpha to calculate this with the given parameters for 
 #argon (and remembering to divide by 6), we find a diffusion constant
 #of approximately 4.668 * 10^16 mm^2/s. It makes sense that the diffusion
-#coefficient for water is much much much less than for argon at kb_T = 4,
+#coefficient for water (liquid?) is much much much less than for argon at kb_T = 4,
 #since this corresponds to a  temperature of 483.83 K, a gaseous state,
 #which will diffuse very easily. 
 
+#Part 3
+#In a liquid vs a solid, there is higher thermal energy and more 
+#available k-modes. Thus, we expect that at a temperature of 4 (liquid),
+#we will see more resonant peaks. 
 
+# fig,ax = plt.subplots()
+# ax.plot(freq, auto)
+# ax.set_xlim(0, 10)
+# ax.set_xlabel(r"$\omega$")
+# ax.set_ylabel(r"P($\omega$)")
+# ax.set_title("Autocorrelation Function, 2x2x2 (dt = 0.01), Kb_T = 4")
+# fig.savefig("hw3_6_3.pdf")
 
-
-
+#See attached for the plot--turns out this is exactly what we see,
+#many more resonant frequency peaks. 
 
 
 
