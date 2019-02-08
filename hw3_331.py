@@ -283,15 +283,22 @@ ax.set_ylabel(r"P($\omega$)")
 # fig.savefig("hw3_4_2.pdf")
 
 #Now for the 1x1x1 case:
-ax.set_title("Autocorrelation Function, 1x1x1 (dt = 0.01)")
-fig.savefig("hw3_4_3.pdf")
+# ax.set_title("Autocorrelation Function, 1x1x1 (dt = 0.01)")
+# fig.savefig("hw3_4_3.pdf")
 
 
-#From the plots generated for all 3 cases, it is clear that 
+#From the plots generated for all 3 cases, it is clear that generally,
 #the larger the computational cell size, the more resonant peaks
 #we see. This makes sense as a higher cell size implies more allowed
 #k-modes (limited by the periodic boundary conditions of the lattice) 
-#and thus more resonant frequency values stand out in the plot. 
+#and thus more resonant frequency values stand out in the plot. However, 
+#being that the k-modes are limited by the periodic bcs, even though we 
+#can say that 4x4x4 will yield more peaks than 3x3x3 which yields more than 
+#2x2x2, we can not make the same argument going from 1x1x1 to 2x2x2. 
+#It turns out that 1x1x1 yields the most peaks, which makes sense as we
+#do not have any periodic boundary conditions in the single lattice point case, 
+#and thus the momentum can take on many more values, resulting in many 
+#more resonant frequencies shown. 
 
 #Part 4
 #The amplitude of the peaks should be proportional to the density of states,
