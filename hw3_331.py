@@ -4,6 +4,7 @@ from mpl_toolkits import mplot3d
 from math import ceil
 import random
 from tqdm import tqdm
+from scipy import stats
 
 L = 2
 M = L
@@ -120,7 +121,9 @@ def integrate(atoms_old, vels, dt): #atoms_old from init_vel(atoms)
 	kb_t_vec = np.zeros(nsteps)
 	deviation = np.zeros(nsteps)
 	kb_t_vec[0] = KE_tot(vels_old)[1]
-	r_disp = np.zeros((natoms,3,20))
+	r_disp = np.zeros((natoms,3))
+	msd = np.zeros(nsteps)
+	r_0 = atoms_old
 	for i in range(1,nsteps):
 		#propagate the atoms with the old atoms
 		prop_atoms = r_prop(atoms_old, vels_old, forces_old, dt)
@@ -132,21 +135,22 @@ def integrate(atoms_old, vels, dt): #atoms_old from init_vel(atoms)
 		energy += e_step
 		deviation[i] = e_step - energy_0
 		kb_t_vec[i] = KE_tot(prop_vels)[1]
-		if (i < 21):
-			r_disp[:,:,i - 1] = prop_atoms - atoms_old
+		r_disp[:,:] = prop_atoms - r_0
+		norm = np.linalg.norm(r_disp, axis = 1)
+		entry = np.sum(np.square(norm), axis = 0)
+		msd[i] = entry 
 		#set the propagated atoms to be the old atoms to find the new propagation with
 		atoms_old = prop_atoms
 		vels_old = prop_vels
 		forces_old = prop_forces
-	r_disp_return = 1/natoms * np.sum(np.sum(np.power(r_disp, 2), axis = 1), axis = 0)
-	return energy, kb_t_vec, 1/(3*natoms)* deviation, vels_matrix, r_disp_return
+	return energy, kb_t_vec, 1/(3*natoms)* deviation, vels_matrix, 1/natoms * msd
 
 #print(integrate(atoms_old, vels, dt)[0])
 #We calculate a total energy of -55985.97874047868 for dt = 0.01
 
 #Part 4 and 5
 #Standalone plot for Kb_T(t):
-#kb_t_vec = integrate(atoms_old, vels, dt)[1]
+# kb_t_vec = integrate(atoms_old, vels, dt)[1]
 # t = np.arange(0,nsteps)
 # fig,ax = plt.subplots()
 # ax.set_ylim(0,0.25)
@@ -271,7 +275,10 @@ def auto_corr(vels_matrix):
 # fig.savefig("hw3_4_1.pdf")
 
 #In the plot attached, we do see consistency with the sketch in that
-#we see spikes at the resonant frequencies for atomic vibration. 
+#we expect a resonant frequency (a spike) to correspond to 
+#available k-modes which depend on the periodic boundary condition (
+#since the appreciable k-modes are those which lie within the first
+#Brillouin zone). 
 
 #Part 3
 #Here we simply repeat the above for 1x1x1 and 3x3x3 case. 
@@ -309,6 +316,7 @@ def auto_corr(vels_matrix):
 #is not yet achieved before we hit equilibrium. 
 
 #Problem 5
+
 # Unless kb_T >> h_bar*omega_max then we have quantum effects. 
 #Now we compare kb_T = 0.2 to h_bar*omega_max to see if a classical approach is justified. 
 #omega_max is given by the largest omega corresponding to an appreciable (not noise)
@@ -325,38 +333,40 @@ def auto_corr(vels_matrix):
 
 #Part 1
 #Added code to calculate a displacement vector for different time steps. 
-# t = np.arange(0,20)
-# msd = integrate(atoms_old, vels, dt)[4]
-# fig,ax = plt.subplots()
-# ax.plot(t, msd)
-#ax.set_xlim(0, 10)
-# ax.set_xlabel("Time Step (dt = 0.01)")
-# ax.set_ylabel("Mean-Squared Displacement")
+t = np.arange(0,nsteps)
+msd = integrate(atoms_old, vels, dt)[4]
+fig,ax = plt.subplots()
+ax.plot(t, msd, label = 'Mean-Squared Displacement')
+ax.set_xlabel("Time Step (dt = 0.01)")
+ax.set_ylabel("Mean-Squared Displacement")
 # ax.set_title("Mean-Squared Displacement, 3x3x3, kb_T = 0.2")
 # fig.savefig("hw3_6_1.pdf")
-# ax.set_title("Mean-Squared Displacement, 3x3x3, kb_T = 4")
-# fig.savefig("hw3_6_2.pdf")
+ax.set_title("Mean-Squared Displacement, 3x3x3, kb_T = 4")
+# Generated linear fit
+slope, intercept, r_value, p_value, std_err = stats.linregress(t,msd)
+line = slope*t + intercept
+ax.plot(t, line, label = 'Linear Fit, slope = ' + str(slope))
+ax.legend()
+fig.savefig("hw3_6_2.pdf")
 
-#The plots are generally similar, in that that start at some "high"
-#value for the msd then traverse toward a minimum after some time, 
-#then climbing back up again. The 0.2 case however takes more time steps
-#to achieve the minimum msd and is also much smoother. The higher 
-#temperature case takes roughly half the time steps to reach its 
-#minimum but it is very jagged with kinks between straight lines. 
+#The lower temperature case is very stable. We see steady fluctuations about
+#an average displacement. The higher temperature case 
+#however climbs up steadily with time in a linear fashion. As time goes on 
+#our msd increases from the phenomenon of diffusion that we discussed in class. 
 
 #Part 2
 #The diffusion constant can be approximated by the long time 
 #(t -> infinity) derivative of the mean-squared displacement, 
 #divided by 2*d where d is the dimension of the system (3 here). 
 #To estimate this, we take the derivative of the final portion of the 
-#high temperature plot, ~(20-170.0006 - 0.00065) distance/time. 
-#This is approximately -6,000,000 mm^2/([6.63 * 10^(-26)kg]^(1/2) * [sigma] * [epsilon]^(-1/2))
+#high temperature plot (approximated by the slope above),
+# ~(.174) sigma^2/time unit. 
+#This is approximately (.174)* sigma^2/([6.63 * 10^(-26)kg]^(1/2) * [sigma] * [epsilon]^(-1/2))
 #Using wolfram alpha to calculate this with the given parameters for 
 #argon (and remembering to divide by 6), we find a diffusion constant
-#of approximately 4.668 * 10^16 mm^2/s. It makes sense that the diffusion
-#coefficient for water (liquid?) is much much much less than for argon at kb_T = 4,
-#since this corresponds to a  temperature of 483.83 K, a gaseous state,
-#which will diffuse very easily. 
+#of approximately 1.5 * 10^-3  mm^2/s. Comparing this to the value for water,
+# 1.6 * 10^-3 mm^2/s we see that particles will diffuse/information 
+#will propagate about as fast in water as in Argon at the same temperature. 
 
 #Part 3
 #In a liquid vs a solid, there is higher thermal energy and more 
