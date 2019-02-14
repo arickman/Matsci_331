@@ -163,7 +163,7 @@ def integrate(atoms_old, vels, dt): #atoms_old from init_vel(atoms)
 #One plot showing all cases of dt = 0.01, 0.02, 0.04 and 0.06. 
 #Here we found that the time step of 0.06 diverges for this calculation. 
 # t = np.arange(0, nsteps)
-# energy_1, kb_t_vec_1, dev_1, vels_mat1, disp1  = integrate(atoms_old, vels, 0.01)
+# energy_1, kb_t_vec_1, dev_1, vels_mat1, disp1  = integrate(atoms_old, vels, 0.01) 
 # energy_2, kb_t_vec_2, dev_2, vels_mat2, disp2  = integrate(atoms_old, vels, 0.02)
 # energy_3, kb_t_vec_3, dev_3, vels_mat3,disp3  = integrate(atoms_old, vels, 0.04)
 # #energy_4, kb_t_vec_4, dev_4, vels_mat4,disp4  = integrate(atoms_old, vels, 0.06) #Diverges

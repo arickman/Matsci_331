@@ -114,6 +114,8 @@ def integrate(atoms_old, vels, dt): #atoms_old from init_vel(atoms)
 	r_disp = np.zeros((natoms,3))
 	msd = np.zeros(nsteps)
 	r_0 = atoms_old
+	e_vec_md = np.zeros(nsteps)
+	e_vec_md[0] = energy_0
 	for i in tqdm(range(1,nsteps)):
 		#propagate the atoms with the old atoms
 		prop_atoms = r_prop(atoms_old, vels_old, forces_old, dt)
@@ -122,6 +124,7 @@ def integrate(atoms_old, vels, dt): #atoms_old from init_vel(atoms)
 		vels_matrix[:,:,i] = prop_vels
 		#add to the energy and kb_T with the new time step
 		e_step = KE_tot(prop_vels)[0] + E_tot_and_force(prop_atoms, natoms)[0]
+		e_vec_md[i] = e_step
 		energy += e_step
 		deviation[i] = e_step - energy_0
 		kb_t_vec[i] = KE_tot(prop_vels)[1]
@@ -133,7 +136,7 @@ def integrate(atoms_old, vels, dt): #atoms_old from init_vel(atoms)
 		atoms_old = prop_atoms
 		vels_old = prop_vels
 		forces_old = prop_forces
-	return energy, kb_t_vec, 1/(3*natoms)* deviation, vels_matrix, 1/natoms * msd
+	return energy, kb_t_vec, 1/(3*natoms)* deviation, vels_matrix, 1/natoms * msd, e_vec_md
 
 #Returns energy_list per accepted step, fail rate
 def mc(atoms_old, nsteps):
@@ -199,13 +202,14 @@ if __name__ == "__main__":
 
 
 	#Problem 2
-	e_vec, reject_rate = mc(atoms_init, nsteps)
-	kb_T = 0.2
-	energy_md = integrate(atoms_old, vels, dt)
+
+	#Part 1
+	e_vec_mc, reject_rate = mc(atoms_init, nsteps)
+
 	# print(reject_rate)
-	# x = np.arange(0,np.shape(e_vec)[0])
+	# x = np.arange(0,np.shape(e_vec_mc)[0])
 	# fig,ax = plt.subplots()
-	# ax.plot(x, e_vec[x])
+	# ax.plot(x, e_vec_mc[x])
 	# ax.set_xlabel("MC Step")
 	# ax.set_ylabel("Potential Energy")
 	# ax.set_title("Monte Carlo, 2x2x2, k_bT = 0.1, 10000 steps")
@@ -214,8 +218,33 @@ if __name__ == "__main__":
 	#With this method, we see a fail rate of 0.3984 (trial 1) and 0.4112 (trial 2), and from our plot
 	#note an equilibration period of roughly 250 accepted steps.
 
+	#Part 2
+	kb_T = 0.2
+	e_vec_md = (integrate(atoms_old, vels, dt)[5])[500 : np.shape(e_vec_mc)[0] + 500] 
+	x = np.arange(0,np.shape(e_vec_md)[0])
+	fig,ax = plt.subplots()
+	fig.tight_layout()
+	ax.plot(x, e_vec_md[x])
+	ax.set_xlabel("MD Step (0.01 LJ Time Units)")
+	ax.set_ylabel("Potential Energy")
+	ax.set_title("Molecular Dynamics, 2x2x2, k_bT = 0.1 equilibrated")
+	fig.savefig("hw4_2_2.pdf")
 
+	avg_mc = np.mean(e_vec_mc)
+	avg_md = np.mean(e_vec_md)
+	var_mc = np.var(e_vec_mc)
+	var_md = np.var(e_vec_md)
 
+	print("Average Values: MC: {}, MD: {}.".format(avg_mc, avg_md))
+	print("Fluctuation Magnitude (Variance) : MC: {}, MD: {}.".format(var_mc, var_md))
+
+	#From the plots, attached below, we see a clear similarity in average value, though a much larger
+	#set of fluctuations (between ~-59 - -61) for MC as opposed to MD (within ~-60 - -61). This is 
+	#confirmed by the printouts above: 
+	#Average Values: MC: -60.47718009433178, MD: -60.924270234973946.
+	#Fluctuation Magnitude (Variance) : MC: 0.888868109164563, MD: 2.9214785415575157e-06.
+
+	#Part 3
 
 
 
