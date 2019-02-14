@@ -3,7 +3,6 @@ import matplotlib.pyplot as plt
 from mpl_toolkits import mplot3d
 from math import ceil
 from math import floor
-import random
 from tqdm import tqdm
 from scipy import stats
 
@@ -140,22 +139,22 @@ def integrate(atoms_old, vels, dt): #atoms_old from init_vel(atoms)
 def mc(atoms_old, nsteps):
 	natoms = np.shape(atoms_old)[0]
 	atoms = atoms_old
-	energy_old = E_tot_and_force(atoms, natoms, force_flag=True)
+	energy_old = E_tot_and_force(atoms, natoms, force_flag=True)[0]
 	fail = 0
 	energy_list = []
 	for i in range(nsteps):
 		#move 1 atom
 		disp = delta*(np.random.uniform(0,1) - 0.5)
-		pos = random.randint(natoms * 3 - 1)
+		pos = np.random.randint(natoms * 3)
 		row = floor(pos/3)
 		col = pos%3 
 		atoms[row, col] += disp
 		#calculate the energy
-		energy = E_tot_and_force(atoms, natoms, force_flag=True)
+		energy = E_tot_and_force(atoms, natoms, force_flag=True)[0]
 		if energy < energy_old :
 			energy_list.append(energy)
 			energy_old = energy
-		elif (disp/delta + 0.5) < (np.exp((energy - energy_old)/kb_T)): 
+		elif (disp/delta + 0.5) < (np.exp(-(energy - energy_old)/kb_T)): 
 			energy_list.append(energy)
 			energy_old = energy
 		#reject
@@ -167,14 +166,15 @@ def mc(atoms_old, nsteps):
 
 
 if __name__ == "__main__":
+
+	#Problem 1
+
 	atoms_init, natoms = setup_cell()
 	atoms_old, vels = init_vel(atoms_init)
-	E_tot,forces = E_tot_and_force(atoms_old, natoms)
-	T_series_eq = (integrate(atoms_old, vels, dt)[1])[500:]
-	LHS = np.var(T_series_eq)/(np.mean(T_series_eq))**2
-	c_over_k = (3/2)/(1 - (3*natoms/2)*LHS)
-	
-	#Problem 1
+	#E_tot, forces = E_tot_and_force(atoms_old, natoms)
+	# T_series_eq = (integrate(atoms_old, vels, dt)[1])[500:]
+	# LHS = np.var(T_series_eq)/(np.mean(T_series_eq))**2
+	# c_over_k = (3/2)/(1 - (3*natoms/2)*LHS)
 
 	#Part 1
 	#Perfect harmonic crystal has c_v/k = 3.
@@ -185,23 +185,34 @@ if __name__ == "__main__":
 	#Trial and error shows that we do need roughly 20000 steps (200 LJ time units) to reach this threshold.
 
 	#Part 2
+	#We are not assuming a perfect harmonic crystal (quadratic nuclear potential terms only) in that
+	#we are using a LJ potential, but we are assuming quantum nuclear effects to be negligible, even
+	#though we found them to be appreciate in this regime in the last problem set. The difference 
+	#between our problem and the heat capacity of the perfect crystal given is that the given system
+	#is assumed to be a perfect harmonic crystal, explaining the different heat capacities found. 
+	#In both cases, quantum nuclear effects are ignored. 
 
 
 	#Part 3
 	#Now we use T = 4 (liquid) and a 3x3x3 cell (20000 time steps):
-	#We now find c_v/k = 3.21, comparable to the solid crystal case above.
+	#We now find c_v/k = 3.21 (trial 1) and 2.89 (trial 2), comparable to the solid crystal case above.
 
 
 	#Problem 2
 	e_vec, reject_rate = mc(atoms_init, nsteps)
-	print(reject_rate)
-	x = np.arange(0,np.shape(e_vec)[0])
-	fig,ax = plt.subplots()
-	ax.plot(x, e_vec[x])
-	ax.set_xlabel("Accepted Step")
-	ax.set_ylabel("Potential Energy")
-	ax.set_title("Monte Carlo, 2x2x2, k_bT = 0.1, 10000 steps")
-	fig.savefig("hw4_2_1.pdf")
+	kb_T = 0.2
+	energy_md = integrate(atoms_old, vels, dt)
+	# print(reject_rate)
+	# x = np.arange(0,np.shape(e_vec)[0])
+	# fig,ax = plt.subplots()
+	# ax.plot(x, e_vec[x])
+	# ax.set_xlabel("MC Step")
+	# ax.set_ylabel("Potential Energy")
+	# ax.set_title("Monte Carlo, 2x2x2, k_bT = 0.1, 10000 steps")
+	# fig.savefig("hw4_2_1.pdf")
+
+	#With this method, we see a fail rate of 0.3984 (trial 1) and 0.4112 (trial 2), and from our plot
+	#note an equilibration period of roughly 250 accepted steps.
 
 
 

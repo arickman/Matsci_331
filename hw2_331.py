@@ -9,20 +9,24 @@ from tqdm import tqdm
 L = 3
 N = 3
 M = 3
-eps = 1.67  # * 10**(-14)ergs
-sigma = 3.4 # * 10**(-8) cm
-r_c = 3 * sigma
+# eps = 1.67  # * 10**(-14)ergs
+# sigma = 3.4 # * 10**(-8) cm
+eps = 1
+sigma = 1
+r_c = 1.3 * sigma
 nbasis = 4
 threshold = 10
-alpha = 5 *  10**(-11)
-force_tol = 10**(6)
+# alpha = 5 *  10**(-11)
+# force_tol = 10**(6)
+alpha = 10**(-3)
+force_tol = 10**(-2)
 
 #If r_c is set so that we consider only nearest neighbors, we can 
 #solve for the equilibrium radius by differentiating the potential and 
 #setting it to zero. This value will be the lattice constant a/sqrt(2): 
 #a = sigma * 2**(1/6) * np.sqrt(2) therefore 
-a = 0.95*sigma * 2**(2/3)
-#a = sigma * 2**(2/3)
+#a = 0.95*sigma * 2**(2/3)
+a = sigma * 2**(2/3)
 
 def setup_cell(L, M, N):
 	#define primitive cell
@@ -34,8 +38,8 @@ def setup_cell(L, M, N):
 
 	#make periodic copies of the primitive cell
 	natoms = 0
-	atoms = np.zeros((L*N*M*nbasis + 1, 3))
-	#atoms = np.zeros((L*N*M*nbasis, 3))
+	#atoms = np.zeros((L*N*M*nbasis + 1, 3))
+	atoms = np.zeros((L*N*M*nbasis, 3))
 	for l in range(0,L):
 		for m in range(0, M):
 			for n in range(N):
@@ -43,15 +47,15 @@ def setup_cell(L, M, N):
 					atoms[natoms + k, :] = basis[k,:] + [l,m,n]
 				natoms += nbasis
 
-	atoms[natoms] = [0.5,0.5,0.5]
+	#atoms[natoms] = [0.5,0.5,0.5]
 
 	#make scaled atom coordinates, i.e. all atom positions range between 0 and 1
 	# atoms[:,0]=atoms[:,0]/L
 	# atoms[:,1]=atoms[:,1]/M
 	# atoms[:,2]=atoms[:,2]/N
 
-	return a*atoms,natoms + 1
-	#return a*atoms, natoms
+	#return a*atoms,natoms + 1
+	return a*atoms, natoms
 
 def E_pot(r):
 	if r < r_c:
@@ -60,12 +64,13 @@ def E_pot(r):
 
 def derive_pot(r):
 	if r < r_c:
-		#return 4*eps*((6/r)*(sigma/r)**6 - (12/r)*(sigma/r)**12)
-		return 10**(8) * 4*eps*((6/r)*(sigma/r)**6 - (12/r)*(sigma/r)**12) #for part 6 only
+		return 4*eps*((6/r)*(sigma/r)**6 - (12/r)*(sigma/r)**12)
+		#return 10**(8) * 4*eps*((6/r)*(sigma/r)**6 - (12/r)*(sigma/r)**12) #for part 6 only
 	else: return 0
 
 
 atoms, natoms = setup_cell(L, M, N)
+#print(np.shape(atoms))
 
 # Parts 2 and 3 (see page attached for 3.1 work)
 def E_tot_and_force(atoms, natoms, L, M, N):
@@ -92,8 +97,9 @@ def E_tot_and_force(atoms, natoms, L, M, N):
 	return 0.5*E_tot,-0.5*forces
 
 E_tot,forces = E_tot_and_force(atoms, natoms, L, M, N)
-#print(E_tot/natoms)
-# print(forces[8])
+# print(E_tot)
+# print(E_tot/natoms)
+print(forces[8])
 
 #2.1 For r_c = 1.3, M,N,L = 3, E_tot/natoms = -6.0. 
 #This number should stay roughly the same in magnitude as we change N,L,M,
@@ -151,12 +157,12 @@ E_tot_vac, forces_vac =  E_tot_and_force(vac_atoms, natoms -1, L, M, N)
 #See this plot to visualize the forces
 #Ben Fearon's plotting code
 #PLOT CELL
-# fig = plt.figure()
-# ax = plt.axes(projection='3d')
-# ax.scatter3D(atoms[:,0], atoms[:,1], atoms[:,2]);
-# ax.scatter3D(vac_atoms[:,0], vac_atoms[:,1], vac_atoms[:,2]);
-# ax.quiver(vac_atoms[:,0],vac_atoms[:,1],vac_atoms[:,2], forces_vac[:,0], forces_vac[:,1], forces_vac[:,2])
-# fig.savefig("forces.pdf")
+fig = plt.figure()
+ax = plt.axes(projection='3d')
+ax.scatter3D(atoms[:,0], atoms[:,1], atoms[:,2]);
+ax.scatter3D(vac_atoms[:,0], vac_atoms[:,1], vac_atoms[:,2]);
+ax.quiver(vac_atoms[:,0],vac_atoms[:,1],vac_atoms[:,2], forces_vac[:,0], forces_vac[:,1], forces_vac[:,2])
+fig.savefig("forces.pdf")
 
 
 #4.6
@@ -198,7 +204,7 @@ def minimize_E(vac_atoms, natoms, L,M,N, alpha):
 	return vac_atoms, E_tot
 
 #To visualize the movement of the atoms:
-vac_atoms_opt = minimize_E(vac_atoms, natoms, L, M, N, alpha)[0]
+#vac_atoms_opt = minimize_E(vac_atoms, natoms, L, M, N, alpha)[0]
 # movement = (vac_atoms - vac_atoms_opt)*200
 # fig = plt.figure()
 # ax = plt.axes(projection='3d')
