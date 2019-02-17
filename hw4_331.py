@@ -6,7 +6,7 @@ from math import floor
 from tqdm import tqdm
 from scipy import stats
 
-L = 2
+L = 3
 M = L
 N = L
 eps = 1
@@ -15,11 +15,12 @@ rcut = 1.3 * sigma
 nbasis = 4
 a = sigma * 2**(2/3)
 latvec = np.array([[a*L, 0, 0],[0, a*M, 0],[0,0, a*N]])
+latvec *= 1.1 #Problem 4
 m = 1
-kb_T = 0.1
+kb_T = 0.1 #defaults
 dt = 0.01 #LJ time units/step
-nsteps = 10*10**(3)
-delta = 0.1
+nsteps = 15*10**(3)
+delta = 0.1 #defaults
 
 def setup_cell():
 	#define primitive cell
@@ -141,11 +142,41 @@ def integrate(atoms_old, vels, dt): #atoms_old from init_vel(atoms)
 #Returns energy_list per accepted step, fail rate
 def mc(atoms_old, nsteps):
 	natoms = np.shape(atoms_old)[0]
-	atoms = atoms_old
+	atoms = np.copy(atoms_old)
 	energy_old = E_tot_and_force(atoms, natoms, force_flag=True)[0]
 	fail = 0
 	energy_list = []
 	for i in range(nsteps):
+		#move 1 atom
+		disp = delta*(np.random.uniform(0,1, 3) - [0.5, 0.5, 0.5])
+		pos = np.random.randint(natoms)
+		atoms[pos] += disp
+		#calculate the energy
+		energy = E_tot_and_force(atoms, natoms, force_flag=True)[0]
+		if energy < energy_old :
+			energy_list.append(energy)
+			energy_old = energy
+		elif np.linalg.norm((disp/delta + 0.5))/np.sqrt(3) < (np.exp(-(energy - energy_old)/kb_T)): 
+			energy_list.append(energy)
+			energy_old = energy
+		#reject
+		else: 
+			atoms[pos] -= disp
+			fail += 1
+	e_vec = np.array(energy_list)
+	return e_vec, fail/nsteps
+
+def modified_mc(atoms_old, nsteps, kb_T_init):
+	natoms = np.shape(atoms_old)[0]
+	atoms = np.copy(atoms_old)
+	energy_old = E_tot_and_force(atoms, natoms, force_flag=True)[0]
+	fail = 0
+	energy_list = []
+	kb_T_curr = kb_T_init
+	r_disp = np.zeros((natoms,3))
+	msd = np.zeros(nsteps)
+	r_0 = np.copy(atoms_old)
+	for i in tqdm(range(nsteps)):
 		#move 1 atom
 		disp = delta*(np.random.uniform(0,1) - 0.5)
 		pos = np.random.randint(natoms * 3)
@@ -157,15 +188,46 @@ def mc(atoms_old, nsteps):
 		if energy < energy_old :
 			energy_list.append(energy)
 			energy_old = energy
-		elif (disp/delta + 0.5) < (np.exp(-(energy - energy_old)/kb_T)): 
+			r_disp[:,:] = atoms - r_0
+			norm = np.linalg.norm(r_disp, axis = 1)
+			entry = np.sum(np.square(norm), axis = 0)
+			msd[i] = entry 
+		elif (disp/delta + 0.5) < (np.exp(-(energy - energy_old)/kb_T_curr)): 
 			energy_list.append(energy)
 			energy_old = energy
+			r_disp[:,:] = atoms - r_0
+			norm = np.linalg.norm(r_disp, axis = 1)
+			entry = np.sum(np.square(norm), axis = 0)
+			msd[i] = entry 
 		#reject
 		else: 
 			atoms[row,col] -= disp
 			fail += 1
+		#ramp down kb_T regardless of pass or fail
+		kb_T_curr -= kb_T_init/nsteps
 	e_vec = np.array(energy_list)
-	return e_vec, fail/nsteps
+	return e_vec, fail/nsteps, atoms, 1/natoms * msd
+
+def e_fast(atoms, natoms):
+	rcut_sqr = rcut*rcut
+	rcut_6 = rcut_sqr*rcut_sqr*rcut_sqr
+	rcut_12 = rcut_6*rcut_6
+	ecut = (-1/rcut_6+1/rcut_12)
+	E_tot = 0
+	for i in range(natoms - 1):
+		for j in range(i+1, natoms):
+			disp = atoms[i,:]- atoms[j,:]
+			disp = disp - np.matmul([int(round(disp[0]/(a*L))), int(round(disp[1]/(a*M))), int(round(disp[2]/(a*N)))], latvec)
+			#square of distance between atoms
+			d_sqr = np.dot(disp,disp)
+			#only calculate energy for atoms within cutoff distance
+			#don't calculate interactions between the same atom
+			if (d_sqr<rcut_sqr and d_sqr > 0):
+				inv_r_6  = 1/(d_sqr*d_sqr*d_sqr)
+				inv_r_12 = inv_r_6*inv_r_6
+				E_tot = E_tot - inv_r_6 + inv_r_12 - ecut
+	return 4*E_tot
+
 
 
 if __name__ == "__main__":
@@ -173,7 +235,7 @@ if __name__ == "__main__":
 	#Problem 1
 
 	atoms_init, natoms = setup_cell()
-	atoms_old, vels = init_vel(atoms_init)
+	#atoms_old, vels = init_vel(atoms_init)
 	#E_tot, forces = E_tot_and_force(atoms_old, natoms)
 	# T_series_eq = (integrate(atoms_old, vels, dt)[1])[500:]
 	# LHS = np.var(T_series_eq)/(np.mean(T_series_eq))**2
@@ -204,9 +266,9 @@ if __name__ == "__main__":
 	#Problem 2
 
 	#Part 1
-	e_vec_mc, reject_rate = mc(atoms_init, nsteps)
+	#e_vec_mc, reject_rate = mc(atoms_init, nsteps)
 
-	# print(reject_rate)
+	#print(reject_rate)
 	# x = np.arange(0,np.shape(e_vec_mc)[0])
 	# fig,ax = plt.subplots()
 	# ax.plot(x, e_vec_mc[x])
@@ -218,33 +280,128 @@ if __name__ == "__main__":
 	#With this method, we see a fail rate of 0.3984 (trial 1) and 0.4112 (trial 2), and from our plot
 	#note an equilibration period of roughly 250 accepted steps.
 
+	#include equilibration for monte carlo energies:
+	#e_vec_mc = e_vec_mc[250:]
+
 	#Part 2
-	kb_T = 0.2
-	e_vec_md = (integrate(atoms_old, vels, dt)[5])[500 : np.shape(e_vec_mc)[0] + 500] 
-	x = np.arange(0,np.shape(e_vec_md)[0])
-	fig,ax = plt.subplots()
-	fig.tight_layout()
-	ax.plot(x, e_vec_md[x])
-	ax.set_xlabel("MD Step (0.01 LJ Time Units)")
-	ax.set_ylabel("Potential Energy")
-	ax.set_title("Molecular Dynamics, 2x2x2, k_bT = 0.1 equilibrated")
-	fig.savefig("hw4_2_2.pdf")
+	# kb_T = 0.2 #just for md calculation
+	# e_vec_md = (integrate(atoms_old, vels, dt)[5])[500 : np.shape(e_vec_mc)[0] + 500] 
+	# x = np.arange(0,np.shape(e_vec_md)[0])
+	# fig,ax = plt.subplots()
+	# ax.plot(x, e_vec_md[x])
+	# ax.set_xlabel("MD Step (0.01 LJ Time Units)")
+	# ax.set_ylabel("Potential Energy")
+	# ax.set_title("Molecular Dynamics, 2x2x2, k_bT = 0.1 equilibrated")
+	# fig.savefig("hw4_2_2.pdf", bbox_inches = "tight")
 
-	avg_mc = np.mean(e_vec_mc)
-	avg_md = np.mean(e_vec_md)
-	var_mc = np.var(e_vec_mc)
-	var_md = np.var(e_vec_md)
+	# avg_mc = np.mean(e_vec_mc)
+	# avg_md = np.mean(e_vec_md)
+	# var_mc = np.var(e_vec_mc)
+	# var_md = np.var(e_vec_md)
 
-	print("Average Values: MC: {}, MD: {}.".format(avg_mc, avg_md))
-	print("Fluctuation Magnitude (Variance) : MC: {}, MD: {}.".format(var_mc, var_md))
+	# print("Average Values: MC: {}, MD: {}.".format(avg_mc, avg_md))
+	# print("Fluctuation Magnitude (Variance) : MC: {}, MD: {}.".format(var_mc, var_md))
 
 	#From the plots, attached below, we see a clear similarity in average value, though a much larger
-	#set of fluctuations (between ~-59 - -61) for MC as opposed to MD (within ~-60 - -61). This is 
+	#set of fluctuations (between ~ -59 - -61) for MC as opposed to MD (within ~ -60.90 - -60.92). This is 
 	#confirmed by the printouts above: 
-	#Average Values: MC: -60.47718009433178, MD: -60.924270234973946.
-	#Fluctuation Magnitude (Variance) : MC: 0.888868109164563, MD: 2.9214785415575157e-06.
+	#Average Values: MC: -60.413024334772004, MD: -60.921732557294476.
+	#Fluctuation Magnitude (Variance) : MC: 0.6100566501607445, MD: 3.1666209773850308e-06.
 
 	#Part 3
+	# reject_rate = 1
+	# while (np.round(reject_rate, 1) != 0.5):
+	# 	delta += 0.01
+	# 	reject_rate = mc(atoms_init, nsteps)[1]
+	# print(' "Optimal" delta for ~0.5 acceptance rate = {}'.format(delta)) #String.format()
+	# "Optimal" delta for ~0.5 acceptance rate = 0.12
+
+	#Problem 3
+	#Note: we will now use the optimal delta found above (0.12).
+
+	#Part 1
+	# k_bT = 0.1
+	# delta = 0.12
+	# c_v_over_k = (3/2) + np.var(e_vec_mc)/((kb_T)**2 * natoms) #use kb_T = 0.1 = const
+	# print(c_v_over_k)
+	#2.524 for 10000 iterations
+	#To get a converged result within 10% of c/k = 3 for the perfect crystal as we did for 
+	#MD, we find that we need roughly 15000 steps. The converged value was c/k =  2.75 (trial 1) and c/k = 3.13 (trial 2).
+
+	#Part 2
+	#This agrees with the value found for MD simulation above, as desired. The two are both
+	#very close to 3. However, we note one difference is that MC takes only 15000 steps to 
+	#converge to within 10% while MD took closer to 20000. 
+
+
+	#Problem 4
+
+	#Part 1
+	#Increase delta for higher acceptance rate (right around 50%)
+	# delta = 0.45
+	# #print(E_tot_and_force(atoms_init, natoms, force_flag=True)[0])
+	# e_vec_mc, reject_rate, atoms_final, msd = modified_mc(atoms_init, 2000, 2)
+	# #print(reject_rate)
+	# #print(e_vec_mc[-1])
+	# print(atoms_init)
+	# print(atoms_final)
+
+	#The original atomic configuration gave energy -154.34 energy units, while the final 
+	#state energy is closer to -92.33 energy units. This means the energy actually went up in this simulation,
+	#which indicates that we are in an "unfavorable atomic configuration," which in this
+	#case is a simulation of compression as desired. A simple printout of the initial and final
+	#atomic positions reveals that while some of the positions were initallly fairly spread out,
+	#(mostly greater than 1 distance unit away from zero), the final configuration including many
+	# atoms within a single unit of 0, indicating compression and the beginnings of the formation
+	#of a nanoparticle as discussed in the assignment handout. 
+
+	#Part 2
+	# delta = 0.45
+	# e_vec_mc_2, reject_rate_2, atoms_final_2, msd2 = modified_mc(atoms_init, 10000, 4)
+	# print(e_vec_mc_2[-1])
+	# print(reject_rate_2)
+	#I will now start from a hot (liquid state) at kb_T = 4 and 
+	#schedule the annealing to be slower, decreasing to 0 over 100000 steps
+	#as opposed to 2000. I will try a few runs to determine a delta for 50% 
+	#acceptance as usual: delta = 0.45 again for ~ 50% acceptance. 
+	#Performing this regimine yields a final energy of roughly: -78 energy units, not lower than
+	# ~ -92 energy units that we found for the first annealing schedule we tried. 
+
+	#Let's try something else: kb_T = 4, in 1000 steps
+	# delta = 0.45
+	# e_vec_mc_3, reject_rate_3, atoms_final_3, msd3 = modified_mc(atoms_init, 1000, 4)
+	# print(e_vec_mc_3[-1])
+	# print(reject_rate_3)
+	#Even worse, energy ~-30
+
+	#Another shot: kb_T = 1 to 0 in 10000 steps
+	# delta = 0.45
+	# e_vec_mc_4, reject_rate_4, atoms_final_4, msd4 = modified_mc(atoms_init, 10000, 1)
+	# print(e_vec_mc_4[-1])
+	# print(reject_rate_4)
+	#We finally find a lower energy of -122.49 energy units with this schedule. 
+
+
+
+	#Part 4
+	msd = modified_mc(atoms_init, 10000, 1)[3]
+	print(msd)
+	t = np.arange(0,np.shape(msd)[0])
+	fig,ax = plt.subplots()
+	ax.plot(t, msd, label = 'Mean-Squared Displacement')
+	ax.set_xlabel("MC Step")
+	ax.set_ylabel("Mean-Squared Displacement")
+	ax.set_title("Mean-Squared Displacement, 3x3x3, Annealing Kb_T from 1 to 0")
+	fig.savefig("hw4_4_4.pdf")
+
+
+	#Part 5
+
+
+
+
+#faster e_calc
+#not just displace in one spatial dimension
 
 
 
