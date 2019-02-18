@@ -6,7 +6,7 @@ from math import floor
 from tqdm import tqdm
 from scipy import stats
 
-L = 3
+L = 2
 M = L
 N = L
 eps = 1
@@ -15,8 +15,6 @@ rcut = 1.3 * sigma
 nbasis = 4
 a = sigma * 2**(2/3)
 latvec = np.array([[a*L, 0, 0],[0, a*M, 0],[0,0, a*N]])
-#latvec *= 1.1 #Problem 4 part 1
-#latvec *= 2 #Problem 4 part 5
 m = 1
 kb_T = 0.1 #defaults
 dt = 0.01 #LJ time units/step
@@ -42,8 +40,6 @@ def setup_cell():
 				natoms += nbasis
 
 	return a*atoms, natoms
-	#return 1.1*a*atoms, natoms
-	#return 2*a*atoms, natoms
 
 def E_tot_and_force(atoms, natoms, force_flag=True):
 	#if (2*rcut >= L): print("Requirement not met.")
@@ -58,7 +54,7 @@ def E_tot_and_force(atoms, natoms, force_flag=True):
 	for i in range(natoms - 1):
 		for j in range(i+1, natoms):
 			disp=atoms[i,:]- atoms[j,:]
-			disp=disp - np.matmul([int(round(disp[0]/(a*L))), int(round(disp[1]/(a*M))), int(round(disp[2]/(a*N)))], latvec)
+			disp=disp - np.matmul([int(round(disp[0]/(latvec[0,0]))), int(round(disp[1]/(latvec[1,1]))), int(round(disp[2]/(latvec[2,2])))], latvec)
 			#square of distance between atoms
 			d_sqr = np.dot(disp,disp)
 			#only calculate energy for atoms within cutoff distance
@@ -178,9 +174,9 @@ def modified_mc(atoms_old, nsteps, kb_T_init):
 	energy_old = E_tot_and_force(atoms, natoms, force_flag=True)[0]
 	fail = 0
 	energy_list = []
+	msd_list = []
 	kb_T_curr = kb_T_init
 	r_disp = np.zeros((natoms,3))
-	msd = np.zeros(nsteps)
 	r_0 = np.copy(atoms_old)
 	for i in tqdm(range(nsteps)):
 		#move 1 atom
@@ -198,14 +194,14 @@ def modified_mc(atoms_old, nsteps, kb_T_init):
 			r_disp[:,:] = atoms - r_0
 			norm = np.linalg.norm(r_disp, axis = 1)
 			entry = np.sum(np.square(norm), axis = 0)
-			msd[i] = entry 
+			msd_list.append(entry) 
 		elif (disp/delta + 0.5)[np.random.randint(2)] < (np.exp(-(energy - energy_old)/kb_T_curr)): 
 			energy_list.append(energy)
 			energy_old = energy
 			r_disp[:,:] = atoms - r_0
 			norm = np.linalg.norm(r_disp, axis = 1)
 			entry = np.sum(np.square(norm), axis = 0)
-			msd[i] = entry 
+			msd_list.append(entry) 
 		#reject
 		else: 
 			atoms[pos] -= disp
@@ -213,6 +209,7 @@ def modified_mc(atoms_old, nsteps, kb_T_init):
 		#ramp down kb_T regardless of pass or fail
 		kb_T_curr -= kb_T_init/nsteps
 	e_vec = np.array(energy_list)
+	msd = np.array(msd_list)
 	return e_vec, fail/nsteps, atoms, 1/natoms * msd
 
 def e_fast(atoms, natoms, pos_of_shift, disp):
@@ -227,8 +224,8 @@ def e_fast(atoms, natoms, pos_of_shift, disp):
 		if i == pos_of_shift: continue
 		d0 = atoms[i,:] - unshift_atom
 		disp=atoms[i,:]- shift_atom
-		disp = disp - np.matmul([int(round(disp[0]/(a*L))), int(round(disp[1]/(a*M))), int(round(disp[2]/(a*N)))], latvec)
-		d0 = d0 - np.matmul([int(round(disp[0]/(a*L))), int(round(disp[1]/(a*M))), int(round(disp[2]/(a*N)))], latvec)
+		disp = disp - np.matmul([int(round(disp[0]/(latvec[0,0]))), int(round(disp[1]/(latvec[1,1]))), int(round(disp[2]/(latvec[1,1])))], latvec)
+		d0 = d0 - np.matmul([int(round(disp[0]/(latvec[0,0]))), int(round(disp[1]/(latvec[1,1]))), int(round(disp[2]/(latvec[1,1])))], latvec)
 		#square of distance between atoms
 		d_sqr = np.dot(disp,disp)
 		d_sqr_0 = np.dot(d0,d0)
@@ -351,8 +348,9 @@ if __name__ == "__main__":
 	#Problem 4
 
 	#Part 1
+	#latvec *= 1.1 #scale up lattice vector by 10%
 	#Increase delta for higher acceptance rate (right around 50%)
-	# delta = 0.15
+	# delta = 0.25
 	# e_vec_mc, reject_rate, atoms_final, msd = modified_mc(atoms_init, 2000, 2)
 	# print(E_tot_and_force(atoms_init, natoms, force_flag=True)[0])
 	# print(reject_rate)
@@ -360,8 +358,8 @@ if __name__ == "__main__":
 	# print(atoms_init)
 	# print(atoms_final)
 
-	#The original atomic configuration gave energy -222.25 energy units, while the final 
-	#state energy is closer to -154.92 energy units. This means the energy actually went up in this simulation,
+	#The original atomic configuration gave energy -154.3 energy units, while the final 
+	#state energy is closer to -97.45 energy units. This means the energy actually went up in this simulation,
 	#which indicates that we are in an "unfavorable atomic configuration," which in this
 	#case is a simulation of compression as desired. A simple printout of the initial and final
 	#atomic positions reveals that while some of the positions were initallly fairly spread out,
@@ -370,47 +368,62 @@ if __name__ == "__main__":
 	#of a nanoparticle as discussed in the assignment handout. 
 
 	#Part 2
-	# delta = 0.15
+	# delta = 0.25
 	# e_vec_mc_2, reject_rate_2, atoms_final_2, msd2 = modified_mc(atoms_init, 10000, 4)
 	# print(e_vec_mc_2[-1])
 	# print(reject_rate_2)
 	#I will now start from a hot (liquid state) at kb_T = 4 and 
 	#schedule the annealing to be slower, decreasing to 0 over 100000 steps
 	#as opposed to 2000. I will try a few runs to determine a delta for 50% 
-	#acceptance as usual: delta = 0.15 again for ~ 50% acceptance. 
-	#Performing this regimine yields a final energy of roughly: -128.65 energy units, not lower than
-	# ~ -154 energy units that we found for the first annealing schedule we tried. 
+	#acceptance as usual: delta = 0.25 again for ~ 50% acceptance. 
+	#Performing this regimine yields a final energy of roughly: -96.25 energy units, not lower than
+	# ~ -97 energy units that we found for the first annealing schedule we tried. 
 
 	#Let's try something else: kb_T = 4, in 1000 steps
-	# delta = 0.25
+	# delta = 0.35
 	# e_vec_mc_3, reject_rate_3, atoms_final_3, msd3 = modified_mc(atoms_init, 1000, 4)
 	# print(e_vec_mc_3[-1])
 	# print(reject_rate_3)
-	#Even worse, energy ~-57.08
+	#Even worse, energy ~ -60.06
 
 	#Another shot: kb_T = 1 to 0 in 10000 steps
-	# delta = 0.12
+	# delta = 0.2
 	# e_vec_mc_4, reject_rate_4, atoms_final_4, msd4 = modified_mc(atoms_init, 10000, 1)
 	# print(e_vec_mc_4[-1])
 	# print(reject_rate_4)
-	#We finally find a lower energy of -206.15 energy units with this schedule. 
+	#We finally find a lower energy of -120.04 energy units with this schedule. 
 
 
 	#Part 4
-	delta = 0.12 #above
-	msd = modified_mc(atoms_init, 10000, 1)[3]
-	t = np.arange(0,np.shape(msd)[0])
-	fig,ax = plt.subplots()
-	ax.plot(t, msd)
-	ax.set_xlabel("MC Step")
-	ax.set_ylabel("Mean-Squared Displacement")
-	ax.set_title("Mean-Squared Displacement, 3x3x3, Annealing Kb_T from 1 to 0")
-	fig.savefig("hw4_4_4.pdf")
+	# delta = 0.2 #above
+	# msd = modified_mc(atoms_init, 10000, 1)[3]
+	# t = np.arange(0,np.shape(msd)[0])
+	# fig,ax = plt.subplots()
+	# ax.plot(t, msd)
+	# ax.set_xlabel("MC Step")
+	# ax.set_ylabel("Mean-Squared Displacement")
+	# ax.set_title("Mean-Squared Displacement, 3x3x3, Annealing Kb_T from 1 to 0")
+	# fig.savefig("hw4_4_4.pdf")
 	#In this plot, we clearly see a climb out of the potential minimum (original configuration),
 	#as the displacement increases nearly linearly. 
+	
+	#We can also compute the potential energy as a function of MC step, plotting it here:
+	# delta = 0.2 
+	# e_vec = modified_mc(atoms_init, 10000, 1)[0]
+	# t = np.arange(0,np.shape(e_vec)[0])
+	# fig,ax = plt.subplots()
+	# ax.plot(t, e_vec)
+	# ax.set_xlabel("MC Step")
+	# ax.set_ylabel("Potential Energy")
+	# ax.set_title("Potential Energy, 3x3x3, Annealing Kb_T from 1 to 0")
+	# fig.savefig("hw4_4_4_2.pdf")
+
+	#From our plot, we can clearly see the potential energy increasing, meaning the
+	#atoms are moving away from their local potential minimum and then after some steps approaching another minimum. 
 
 
 	#Part 5
+	latvec *= 2
 
 
 #faster e_calc
