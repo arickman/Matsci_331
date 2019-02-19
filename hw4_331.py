@@ -11,7 +11,7 @@ M = L
 N = L
 eps = 1
 sigma = 1
-rcut = 1.3 * sigma
+rcut = 3 * sigma
 nbasis = 4
 a = sigma * 2**(2/3)
 latvec = np.array([[a*L, 0, 0],[0, a*M, 0],[0,0, a*N]])
@@ -187,7 +187,7 @@ def modified_mc(atoms_old, nsteps, kb_T_init):
 		atoms[pos] += disp
 		#calculate the energy
 		energy = E_tot_and_force(atoms, natoms, force_flag=True)[0]
-		energy2 = energy_old + e_fast(atoms, natoms, pos, disp)
+		#energy = energy_old + e_fast(atoms, natoms, pos, disp)
 		if energy < energy_old :
 			energy_list.append(energy)
 			energy_old = energy
@@ -225,7 +225,7 @@ def e_fast(atoms, natoms, pos_of_shift, disp):
 		d0 = atoms[i,:] - unshift_atom
 		disp=atoms[i,:]- shift_atom
 		disp = disp - np.matmul([int(round(disp[0]/(latvec[0,0]))), int(round(disp[1]/(latvec[1,1]))), int(round(disp[2]/(latvec[1,1])))], latvec)
-		d0 = d0 - np.matmul([int(round(disp[0]/(latvec[0,0]))), int(round(disp[1]/(latvec[1,1]))), int(round(disp[2]/(latvec[1,1])))], latvec)
+		d0 = d0 - np.matmul([int(round(d0[0]/(latvec[0,0]))), int(round(d0[1]/(latvec[1,1]))), int(round(d0[2]/(latvec[1,1])))], latvec)
 		#square of distance between atoms
 		d_sqr = np.dot(disp,disp)
 		d_sqr_0 = np.dot(d0,d0)
@@ -244,8 +244,8 @@ if __name__ == "__main__":
 
 	#Problem 1
 
-	atoms_init, natoms = setup_cell()
-	atoms_old, vels = init_vel(atoms_init)
+	#atoms_init, natoms = setup_cell()
+	#atoms_old, vels = init_vel(atoms_init)
 	#E_tot, forces = E_tot_and_force(atoms_old, natoms)
 	# T_series_eq = (integrate(atoms_old, vels, dt)[1])[500:]
 	# LHS = np.var(T_series_eq)/(np.mean(T_series_eq))**2
@@ -258,6 +258,9 @@ if __name__ == "__main__":
 	#c_v/k = 3.23 (trial 1),c_v/k = 3.29 (trial 2), compared to the true value of 3 stated above. 
 	#This is already within 10% of the true value, meaning within 0.3 (c_v/k calculation lower than 3.3). 
 	#Trial and error shows that we do need roughly 20000 steps (200 LJ time units) to reach this threshold.
+	#In terms of the precision problem (to get results consistently within 10% of each other), we also find 
+	#the same number of converged steps needed (20000). More trials confirm this convergence in precision 
+	#and accuracy with this number of steps. 
 
 	#Part 2
 	#We are not assuming a perfect harmonic crystal (quadratic nuclear potential terms only) in that
@@ -334,11 +337,16 @@ if __name__ == "__main__":
 	#Part 1
 	# k_bT = 0.1
 	# delta = 0.06
+	# e_vec_mc, reject_rate = mc(atoms_init, nsteps)
+	# e_vec_mc = e_vec_mc[250:]
 	# c_v_over_k = (3/2) + np.var(e_vec_mc)/((kb_T)**2 * natoms) #use kb_T = 0.1 = const
 	# print(c_v_over_k)
 	#2.41 for 10000 iterations
 	#To get a converged result within 10% of c/k = 3 for the perfect crystal as we did for 
 	#MD, we find that we need roughly 20000 steps. The converged value was c/k = 2.79 (trial 1) and c/k = 2.87 (trial 2).
+	#Again, we see precision with this number of steps, as our trial values are within 10% of one another. More
+	#trials confirm this convergence in precision and accuracy with this number of steps.
+
 
 	#Part 2
 	#This agrees with the value found for MD simulation above, as desired. The two are both
@@ -361,10 +369,10 @@ if __name__ == "__main__":
 	#The original atomic configuration gave energy -154.3 energy units, while the final 
 	#state energy is closer to -97.45 energy units. This means the energy actually went up in this simulation,
 	#which indicates that we are in an "unfavorable atomic configuration," which in this
-	#case is a simulation of compression as desired. A simple printout of the initial and final
+	#case is a simulation of tension as desired. A simple printout of the initial and final
 	#atomic positions reveals that while some of the positions were initallly fairly spread out,
 	#(mostly greater than 1 distance unit away from zero), the final configuration including many
-	# atoms within a single unit of 0, indicating compression and the beginnings of the formation
+	# atoms within a single unit of 0, indicating tension and the beginnings of the formation
 	#of a nanoparticle as discussed in the assignment handout. 
 
 	#Part 2
@@ -423,29 +431,62 @@ if __name__ == "__main__":
 
 
 	#Part 5
-	latvec *= 2
+	#latvec *= 2
+	#Also chaning rcut to be 3 sigma instead of 1.3 sigma for better results. 
+	#We now set out to look for the global energy minimum of the 32 atom nanoparticle.
+	#We will always use a delta to correspond to ~50% acceptance. I will also run the simulation
+	#for many more MC steps than before, say 60000 so as to avoid simply falling into another local min, but
+	#rather finding what we hope is the global minimum. 
+
+	#Let's start with: kb_T = 0.3 to 0 in 100000 steps
+	# delta = 0.09
+	# kb_T_init = 0.3
+	# e_min = E_tot_and_force(atoms_init, natoms, False)[0]
+	# print(e_min)
+	# while (kb_T_init > 0):
+	# 	e_vec_mc, reject_rate, atoms_final, msd = modified_mc(atoms_init, 100000, kb_T_init)
+	# 	if (reject_rate - 0.5) > 0.1 :
+	# 		delta -= 0.01 #failed the delta test, so lower delta and repeat 
+	# 		print(delta)
+	# 		print(reject_rate)
+	# 		continue #kb_T_init umchanged, the min also unchanged
+	# 	elif (reject_rate - 0.5) < -0.1:
+	# 		delta += 0.01
+	# 		continue
+	# 		print(delta)
+	# 		print(reject_rate)
+	# 	#delta is fine
+	# 	elif (np.amin(e_vec_mc) < e_min) :
+	# 		e_min = np.amin(e_vec_mc)
+	# 	kb_T_init -= 0.05
+	# print(e_min)
+	# print(kb_T_init)
+	#This will tell us which annealing schedule to use for our final plot
 
 
-#faster e_calc
+	#From above, we will use the following schedule to find our minimum:
 
+	# delta = 0.09
+	# kb_T_init = 0.2
+	# e_vec_mc, reject_rate, atoms_final, msd = modified_mc(atoms_init, 100000, kb_T_init)
+	# print(reject_rate)
+	# print(np.amin(e_vec_mc))
+	#e_min = -134.396 LJ energy units. 
+	
+	
+	#We can get the minimum energy out of all time steps from the min of our energy array. 
 
+	# t = np.arange(0,np.shape(e_vec_mc)[0])
+	# fig,ax = plt.subplots()
+	# ax.plot(t, e_vec_mc)
+	# ax.set_xlabel("MC Step")
+	# ax.set_ylabel("Potential Energy")
+	# ax.set_title("Potential Energy, 2x2x2, Annealing Kb_T from 0.2 to 0")
+	# fig.savefig("hw4_4_5.pdf")
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+	#As we can also see in the plot generated above, we found what we hope is the global minimum, 
+	#at an energy value of -134.396 energy units, significantly lower than our starting configuration yielding
+	# -127.71 energy units, as desired. 
 
 
 
